@@ -1,0 +1,16 @@
+{
+  "name": "barometer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "dependencies": {
+    "sqlite3": "^5.0.0",
+    "telegraf": "^3.38.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "node app.js"
+  },
+  "author": "Nikita",
+  "license": "MIT"
+}
