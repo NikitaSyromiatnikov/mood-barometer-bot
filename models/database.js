@@ -98,4 +98,24 @@ async function addMessage(message) {
     });
 }
 
-module.exports = { addUser, getUser, updateUser, getMood, addMessage };
+async function addMood(mood) {
+    return new Promise(function (resolve, reject) {
+        database.run(`INSERT INTO "mood" VALUES (:id, :time, :date, :caption, :description, :value)`, {
+            ':id': mood.id,
+            ':time': mood.time,
+            ':date': mood.date,
+            ':caption': mood.caption,
+            ':description': mood.description,
+            ':value': mood.value
+        }, function (error) {
+            if (error)
+                reject(error);
+
+            resolve(mood);
+        });
+    }).catch(function (error) {
+        console.error(error);
+    });
+}
+
+module.exports = { addUser, getUser, updateUser, getMood, addMessage, addMood };

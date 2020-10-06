@@ -6,10 +6,12 @@ const { Reply } = require('./replies');
 const Stages = new Stage();
 
 const StartScene = new Scene('start-scene');
+const RateMoodScene = new Scene('rate-mood-scene');
 const MainMenuScene = new Scene('main-menu-scene');
 const SelectMoodScene = new Scene('select-mood-scene');
 const AccountMenuScene = new Scene('account-menu-scene');
 const SendMessageScene = new Scene('send-message-scene');
+const DescribeMoodScene = new Scene('describe-mood-scene');
 
 StartScene.enter(async function (ctx) {
     let user = await Database.getUser(ctx.from.id);
@@ -179,11 +181,14 @@ AccountMenuScene.on('text', async function (ctx) {
 
 SelectMoodScene.enter(async function (ctx) {
     let response = {
-        text: '<b>Оцени по шакле</b>\n\n<i>Этот градиент из смайликов, где лево это плохо, а право это хорошо</i>',
+        text: '<b>Оцени по шкале</b>\n\n<i>Это набор смайликов который может описать твой вид или взгляд сейчас</i>\n\n<i>Не можешь найти подходящий? Просто отправь мне тот который посчитаешь нужным</i>',
         options: {
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: '😢', callback_data: '0' }, { text: '😔', callback_data: '1' }, { text: '😕', callback_data: '2' }, { text: 'd', callback_data: 's' }, { text: '😉', callback_data: 's' }, { text: 'd', callback_data: 's' }, { text: 'd', callback_data: 's' }, { text: 'd', callback_data: 's' }, { text: 'd', callback_data: 's' }, { text: 'd', callback_data: 's' }, { text: 'd', callback_data: 's' }, { text: 'd', callback_data: 's' }, { text: 'd', callback_data: 's' }, { text: 'd', callback_data: 's' }, { text: 'd', callback_data: 's' }]
+                    [{ text: '😢', callback_data: '😢' }, { text: '😞', callback_data: '😞' }, { text: '😒', callback_data: '😒' }],
+                    [{ text: '😃', callback_data: '😃' }, { text: '😁', callback_data: '😁' }, { text: '😍', callback_data: '😍' }],
+                    [{ text: '😉', callback_data: '😉' }, { text: '😝', callback_data: '😝' }, { text: '😡', callback_data: '😡' }],
+                    [{ text: 'Установить отправленный', callback_data: 'set_sent' }]
                 ]
             },
             parse_mode: 'HTML'
@@ -191,6 +196,160 @@ SelectMoodScene.enter(async function (ctx) {
     }
 
     return ctx.reply(response.text, response.options);
+});
+
+SelectMoodScene.on('text', async function (ctx) {
+    if (ctx.update.message.text == '😊 Моё настроение')
+        return ctx.scene.enter('select-mood-scene');
+
+    if (ctx.update.message.text == '📥 Сообщения')
+        return ctx.scene.enter('new-messages-scene');
+
+    if (ctx.update.message.text == '📈 Статистика')
+        return ctx.scene.enter('stat-menu-scene');
+
+    ctx.session.caption = ctx.update.message.text;
+
+    let response = {
+        text: ctx.update.message.text,
+        options: {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: 'Установить', callback_data: 'accept' }, { text: 'Отменить', callback_data: 'decline' }]
+                ]
+            },
+            parse_mode: 'HTML'
+        }
+    }
+
+    return ctx.reply(response.text, response.options);
+});
+
+SelectMoodScene.on('callback_query', async function (ctx) {
+    if (ctx.update.callback_query.data == 'set_sent')
+        return ctx.answerCbQuery('Отправь мне смайлик', true);
+
+    if (ctx.update.callback_query.data == 'decline')
+        return ctx.deleteMessage();
+
+    if (ctx.update.callback_query.data == 'accept') {
+        await ctx.answerCbQuery('Твоё настроение: ' + ctx.session.caption);
+        return ctx.scene.enter('rate-mood-scene');
+    }
+
+    ctx.session.caption = ctx.update.callback_query.data;
+
+    await ctx.answerCbQuery('Твоё настроение: ' + ctx.update.callback_query.data);
+    return ctx.scene.enter('rate-mood-scene');
+});
+
+RateMoodScene.enter(async function (ctx) {
+    ctx.session.value = 5.0;
+
+    let response = {
+        text: '<b>Ещё параметры</b>\n\n<i>А теперь пожалуйста оцени настроение цифрой\n\nДело в том что я ещё не умею понимать на сколько смайлики оценивают своё настроение по 10-ти бальной шкале</i>',
+        options: {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '🔽', callback_data: 'down' }, { text: `${ctx.session.value}/10`, callback_data: 'current' }, { text: '🔼', callback_data: 'up' }],
+                    [{ text: 'Установить текущее', callback_data: 'set' }]
+                ]
+            },
+            parse_mode: 'HTML'
+        }
+    };
+
+    return ctx.reply(response.text, response.options);
+});
+
+RateMoodScene.on('callback_query', async function (ctx) {
+    switch (ctx.update.callback_query.data) {
+        case 'up':
+            ctx.session.value++;
+            return ctx.editMessageReplyMarkup({
+                inline_keyboard: [
+                    [{ text: '🔽', callback_data: 'down' }, { text: `${ctx.session.value}/10`, callback_data: 'current' }, { text: '🔼', callback_data: 'up' }],
+                    [{ text: 'Установить текущее', callback_data: 'set' }]
+                ]
+            });
+
+        case 'down':
+            ctx.session.value--;
+            return ctx.editMessageReplyMarkup({
+                inline_keyboard: [
+                    [{ text: '🔽', callback_data: 'down' }, { text: `${ctx.session.value}/10`, callback_data: 'current' }, { text: '🔼', callback_data: 'up' }],
+                    [{ text: 'Установить текущее', callback_data: 'set' }]
+                ]
+            });
+
+        case 'set':
+            await ctx.answerCbQuery('Оценка настроения: ' + ctx.session.value);
+            return ctx.scene.enter('describe-mood-scene');
+
+        case 'current':
+            return ctx.answerCbQuery(`Сейчас твоё настроение: ${ctx.session.value}/10`, true);
+    }
+});
+
+DescribeMoodScene.enter(async function (ctx) {
+    let response = {
+        text: '<b>Напиши мне почему так</b>\n\n<i>Что тебя порадовало или наоборот расстроило? Это важно для меня</i>',
+        options: {
+            reply_markup: {
+                keyboard: [
+                    [{ text: 'Не скажу' }]
+                ],
+                resize_keyboard: true
+            },
+            parse_mode: 'HTML'
+        }
+    }
+
+    return ctx.reply(response.text, response.options);
+});
+
+DescribeMoodScene.on('text', async function (ctx) {
+    ctx.session.description = ctx.update.message.text;
+
+    let mood = {
+        id: null,
+        time: new Date().toTimeString(),
+        date: new Date().toDateString(),
+        caption: ctx.session.caption,
+        description: ctx.session.description,
+        value: ctx.session.value
+    };
+
+    ctx.session.mood = mood;
+
+    console.log(mood);
+
+    if (mood.description == 'Не скажу')
+        mood.description = 'Не говорит почему';
+
+    let response = {
+        text: `<b>Обновить настроение</b>\n\n<b>Натсроение: </b>${mood.value}/10\n\n<b>${mood.caption}</b>\n<i>${mood.description}</i>\n\n<b>Последнее обновление: </b>\n${mood.date} в ${mood.time}`,
+        options: {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: 'Обновить', callback_data: 'accept' }, { text: 'Удалить', callback_data: 'decline' }]
+                ]
+            },
+            parse_mode: 'HTML'
+        }
+    }
+
+    return ctx.reply(response.text, response.options);
+});
+
+DescribeMoodScene.on('callback_query', async function (ctx) {
+    if (ctx.update.callback_query.data == 'accept') {
+        await Database.addMood(ctx.session.mood);
+        await ctx.answerCbQuery('Сохраняю настроение');
+    } else
+        await ctx.deleteMessage();
+
+    return ctx.scene.enter('main-menu-scene');
 });
 
 async function sendMood(ctx) {
@@ -229,6 +388,6 @@ async function sendMessage(ctx) {
     return ctx.scene.enter('main-menu-scene');
 }
 
-Stages.register(StartScene, MainMenuScene, SelectMoodScene, SelectMoodScene, SendMessageScene, AccountMenuScene);
+Stages.register(StartScene, MainMenuScene, SelectMoodScene, SelectMoodScene, SendMessageScene, AccountMenuScene, RateMoodScene, DescribeMoodScene);
 
 module.exports = { Stages };
