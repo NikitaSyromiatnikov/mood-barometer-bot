@@ -376,7 +376,7 @@ DescribeMoodScene.on('callback_query', async function (ctx) {
         await Database.addMood(ctx.session.mood);
         await ctx.answerCbQuery('Сохраняю настроение');
         let users = await Database.getUsers();
-        for (let i = 0; i < users.length; i++) 
+        for (let i = 0; i < users.length; i++)
             ctx.telegram.sendMessage(user[i].id, '<b>Настроение изменилось, посмотри как она!</b>', { parse_mode: 'HTML' });
     } else
         await ctx.deleteMessage();
@@ -553,9 +553,9 @@ async function getStat(ctx) {
     fileContents = fileContents.replace("USERNAME", "Nikita_sm");
 
     fs.writeFileSync(path.resolve(__dirname, '..', 'data', `${new Date().toDateString()}.html`), fileContents, { encoding: 'utf-8' });
+    fs.writeFileSync(path.resolve(__dirname, '..', 'docs', `index.html`), fileContents, { encoding: 'utf-8' });
 
     ctx.session.latest_filename = new Date().toDateString();
-
     return average;
 }
 
