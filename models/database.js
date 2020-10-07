@@ -52,9 +52,10 @@ async function getUser(id) {
 
 async function updateUser(user) {
     return new Promise(function (resolve, reject) {
-        database.run(`UPDATE "users" SET subscribed = :subscribed WHERE id = :id`, {
+        database.run(`UPDATE "users" SET subscribed = :subscribed, status = :status WHERE id = :id`, {
+            ':id': user.id,
             ':subscribed': user.subscribed,
-            ':id': user.id
+            ':status': user.status
         }, function (error) {
             if (error)
                 reject(error);
@@ -118,4 +119,45 @@ async function addMood(mood) {
     });
 }
 
-module.exports = { addUser, getUser, updateUser, getMood, addMessage, addMood };
+async function getMessages() {
+    return new Promise(function (resolve, reject) {
+        database.all(`SELECT * FROM "messages"`, function (error, rows) {
+            if (error)
+                reject(error);
+
+            resolve(rows);
+        });
+    }).catch(function (error) {
+        console.error(error);
+    });
+}
+
+async function getMessage(id) {
+    return new Promise(function (resolve, reject) {
+        database.get(`SELECT * FROM "messages" WHERE id = :id`, {
+            ':id': id
+        }, function (error, row) {
+            if (error)
+                reject(error);
+
+            resolve(row);
+        });
+    }).catch(function (error) {
+        console.error(error);
+    });
+}
+
+async function getUsers() {
+    return new Promise(function (resolve, reject) {
+        database.get(`SELECT * FROM "users" WHERE subscribed = 1`, function (error, row) {
+            if (error)
+                reject(error);
+
+            resolve(row);
+        });
+    }).catch(function (error) {
+        console.error(error);
+    });
+}
+
+module.exports = { addUser, getUser, updateUser, getMood, addMessage, addMood, getMessages, getUsers, getMessage };

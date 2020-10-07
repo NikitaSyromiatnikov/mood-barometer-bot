@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const Stage = require('telegraf/stage');
 const Scene = require('telegraf/scenes/base');
 const Database = require('./database');
@@ -6,12 +8,14 @@ const { Reply } = require('./replies');
 const Stages = new Stage();
 
 const StartScene = new Scene('start-scene');
+const StatMenuScene = new Scene('stat-menu-scene');
 const RateMoodScene = new Scene('rate-mood-scene');
 const MainMenuScene = new Scene('main-menu-scene');
 const SelectMoodScene = new Scene('select-mood-scene');
 const AccountMenuScene = new Scene('account-menu-scene');
 const SendMessageScene = new Scene('send-message-scene');
 const DescribeMoodScene = new Scene('describe-mood-scene');
+const ReviewMessagesScene = new Scene('review-messages-scene');
 
 StartScene.enter(async function (ctx) {
     let user = await Database.getUser(ctx.from.id);
@@ -46,6 +50,7 @@ MainMenuScene.on('text', async function (ctx) {
         case '👤 Профиль':
             return ctx.scene.enter('account-menu-scene');
 
+        case '❓ Последнее':
         case '❓ Узнать настроение':
             return await sendMood(ctx);
 
@@ -54,6 +59,12 @@ MainMenuScene.on('text', async function (ctx) {
 
         case '😊 Моё настроение':
             return ctx.scene.enter('select-mood-scene');
+
+        case '📥 Сообщения':
+            return ctx.scene.enter('review-messages-scene');
+
+        case '📈 Статистика':
+            return ctx.scene.enter('stat-menu-scene');
 
         default:
             return ctx.reply(Reply.onWrong.text, Reply.onWrong.options);
@@ -82,7 +93,7 @@ SendMessageScene.on('text', async function (ctx) {
                 ]
             }
         }
-    }
+    };
 
     ctx.session.message = {
         id: null,
@@ -180,6 +191,21 @@ AccountMenuScene.on('text', async function (ctx) {
 });
 
 SelectMoodScene.enter(async function (ctx) {
+    let message = {
+        text: '<b>Изменить настроение</b>\n\n<i>Если оно не изменилось - нажми кнопку назад</i>',
+        options: {
+            reply_markup: {
+                keyboard: [
+                    [{ text: '◀️ Назад' }]
+                ],
+                resize_keyboard: true
+            },
+            parse_mode: 'HTML'
+        }
+    }
+
+    await ctx.reply(message.text, message.options);
+
     let response = {
         text: '<b>Оцени по шкале</b>\n\n<i>Это набор смайликов который может описать твой вид или взгляд сейчас</i>\n\n<i>Не можешь найти подходящий? Просто отправь мне тот который посчитаешь нужным</i>',
         options: {
@@ -199,6 +225,9 @@ SelectMoodScene.enter(async function (ctx) {
 });
 
 SelectMoodScene.on('text', async function (ctx) {
+    if (ctx.update.message.text == '◀️ Назад')
+        return ctx.scene.enter('main-menu-scene');
+
     if (ctx.update.message.text == '😊 Моё настроение')
         return ctx.scene.enter('select-mood-scene');
 
@@ -346,10 +375,120 @@ DescribeMoodScene.on('callback_query', async function (ctx) {
     if (ctx.update.callback_query.data == 'accept') {
         await Database.addMood(ctx.session.mood);
         await ctx.answerCbQuery('Сохраняю настроение');
+        let users = await Database.getUsers();
+        for (let i = 0; i < users.length; i++) 
+            ctx.telegram.sendMessage(user[i].id, '<b>Настроение изменилось, посмотри как она!</b>', { parse_mode: 'HTML' });
     } else
         await ctx.deleteMessage();
 
     return ctx.scene.enter('main-menu-scene');
+});
+
+ReviewMessagesScene.enter(async function (ctx) {
+    let message = {
+        text: '<b>Сейчас поищу твои сообщения</b>\n\n<i>Обычно это занимает мало времени</i>',
+        options: {
+            reply_markup: {
+                keyboard: [
+                    [{ text: '◀️ Назад' }]
+                ],
+                resize_keyboard: true
+            },
+            parse_mode: 'HTML'
+        }
+    };
+
+    await ctx.reply(message.text, message.options);
+
+    let response = {
+        text: '📥 <b>Входящие сообщения</b>\n\n<i>Нажми чтобы посмотреть больше</i>',
+        options: {
+            reply_markup: {
+                inline_keyboard: []
+            },
+            parse_mode: 'HTML'
+        }
+    }
+
+    let messages = await Database.getMessages();
+
+    for (let i = 0; i < messages.length; i++) {
+        let user = await Database.getUser(messages[i].from);
+        response.options.reply_markup.inline_keyboard.push([{ text: `@${user.username}`, callback_data: `message-${messages[i].id}` }]);
+    }
+
+    return ctx.reply(response.text, response.options);
+});
+
+ReviewMessagesScene.on('callback_query', async function (ctx) {
+    let array = String(ctx.update.callback_query.data).split('-');
+    let user = {};
+    let query = {
+        payload: array[0],
+        data: array[1]
+    };
+
+    switch (query.payload) {
+        case 'message':
+            let message = await Database.getMessage(query.data);
+            user = await Database.getUser(message.from);
+
+            await ctx.answerCbQuery('Загрузка сообщения');
+
+            let response = {
+                text: `📥 <b>Сообщение от @${user.username}:</b>\n\n${message.date} ${message.time}\n\n<i>${message.text}</i>`,
+                options: {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: 'Забанить к хуям', callback_data: `ban-${user.id}` }],
+                            [{ text: 'Сообщение', url: `t.me/${user.username}` }, { text: 'Спрятать', callback_data: 'hide' }]
+                        ]
+                    },
+                    parse_mode: 'HTML'
+                }
+            }
+            return ctx.reply(response.text, response.options);
+
+        case 'ban':
+            user = await Database.getUser(query.data);
+            user.status = 'banned';
+            await Database.updateUser(user);
+            await ctx.answerCbQuery(`Пользователь @${user.username} забанен к хуям`);
+            return ctx.deleteMessage();
+
+        case 'hide':
+            return ctx.deleteMessage();
+    }
+
+});
+
+ReviewMessagesScene.on('text', async function (ctx) {
+    if (ctx.update.message.text == '◀️ Назад')
+        return ctx.scene.enter('main-menu-scene');
+});
+
+StatMenuScene.enter(async function (ctx) {
+    let response = {
+        text: `<b>Статистика:</b>\n\n<i>Пожалуйста подождите</i>`,
+        options: {
+            reply_markup: {
+                keyboard: [
+                    [{ text: '◀️ Назад' }]
+                ],
+                resize_keyboard: true
+            },
+            parse_mode: 'HTML'
+        }
+    }
+
+    await getStat(ctx);
+    await ctx.reply(response.text, response.options);
+    return ctx.telegram.sendDocument(ctx.from.id, { source: path.resolve(__dirname, '..', 'data', `${ctx.session.latest_filename}.html`), caption: `${ctx.session.latest_filename}` });
+});
+
+StatMenuScene.on('text', async function (ctx) {
+    if (ctx.update.message.text == '◀️ Назад')
+        return ctx.scene.enter('main-menu-scene');
 });
 
 async function sendMood(ctx) {
@@ -372,7 +511,7 @@ async function sendMood(ctx) {
         }
     }
 
-    return ctx.reply(response.text, response.options);
+    await ctx.reply(response.text, response.options);
 }
 
 async function sendMessage(ctx) {
@@ -388,6 +527,38 @@ async function sendMessage(ctx) {
     return ctx.scene.enter('main-menu-scene');
 }
 
-Stages.register(StartScene, MainMenuScene, SelectMoodScene, SelectMoodScene, SendMessageScene, AccountMenuScene, RateMoodScene, DescribeMoodScene);
+async function getStat(ctx) {
+    let moods = await Database.getMood();
+    let messages = await Database.getMessages();
+
+    let latest = moods[moods.length - 1];
+    let average = 0;
+
+    for (let i = 0; i < moods.length; i++)
+        average += moods[i].value;
+
+    average = Number(average / moods.length).toFixed(2);
+
+    let fileContents = fs.readFileSync(path.resolve(__dirname, '..', 'data', 'stat.html'), 'utf8', function (error) {
+        if (error)
+            throw new Error(error);
+    });
+
+    fileContents = fileContents.replace("AVERAGE_VALUE", average);
+    fileContents = fileContents.replace("LATEST_VALUE", Number(latest.value).toFixed(2));
+    fileContents = fileContents.replace("LATEST_DATE", latest.date);
+    fileContents = fileContents.replace("LATEST_TEXT", latest.description);
+    fileContents = fileContents.replace("MESSAGES_AMOUNT", messages.length);
+    fileContents = fileContents.replace("USERNAME", "Nikita_sm");
+    fileContents = fileContents.replace("USERNAME", "Nikita_sm");
+
+    fs.writeFileSync(path.resolve(__dirname, '..', 'data', `${new Date().toDateString()}.html`), fileContents, { encoding: 'utf-8' });
+
+    ctx.session.latest_filename = new Date().toDateString();
+
+    return average;
+}
+
+Stages.register(StartScene, MainMenuScene, SelectMoodScene, SelectMoodScene, SendMessageScene, AccountMenuScene, RateMoodScene, DescribeMoodScene, ReviewMessagesScene, StatMenuScene);
 
 module.exports = { Stages };
