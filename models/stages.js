@@ -35,6 +35,13 @@ StartScene.enter(async function (ctx) {
     return ctx.scene.enter('main-menu-scene');
 });
 
+StartScene.on('callback_query', async function (ctx) {
+    if (ctx.update.callback_query.data == 'messages') {
+        await ctx.answerCbQuery('Загружаю смски');
+        return ctx.scene.enter('review-messages-scene');
+    }
+});
+
 MainMenuScene.enter(async function (ctx) {
     let user = await Database.getUser(ctx.from.id);
 
@@ -74,6 +81,9 @@ MainMenuScene.on('text', async function (ctx) {
 MainMenuScene.on('callback_query', async function (ctx) {
     if (ctx.update.callback_query.data == 'hide')
         return ctx.deleteMessage();
+
+    if (ctx.update.callback_query.data == 'messages')
+        return ctx.scene.enter('review-messages-scene');
 });
 
 SendMessageScene.enter(async function (ctx) {
@@ -524,6 +534,24 @@ async function sendMessage(ctx) {
 
     await Database.addMessage(ctx.session.message);
     await ctx.answerCbQuery('Сообщение отправлено', true);
+
+    let notification = {
+        to: await Database.getOwners(),
+        text: `<b>Привет, Аня, тебе прислали новое сообщение 💌</b>`,
+        options: {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '🚶‍♀️ В сообщения', callback_data: 'messages' }]
+                ]
+            },
+            parse_mode: 'HTML'
+        }
+    }
+
+    for (let i = 0; i < notification.to.length; i++) {
+        ctx.telegram.sendMessage(notification.to[i].id, notification.text, notification.options);
+    }
+
     return ctx.scene.enter('main-menu-scene');
 }
 

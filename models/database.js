@@ -160,4 +160,17 @@ async function getUsers() {
     });
 }
 
-module.exports = { addUser, getUser, updateUser, getMood, addMessage, addMood, getMessages, getUsers, getMessage };
+async function getOwners() {
+    return new Promise(function (resolve, reject) {
+        database.all(`SELECT * FROM "users" WHERE status = :status`, {
+            ':status': 'owner'
+        }, function (error, rows) {
+            if (error)
+                reject(error);
+
+            resolve(rows);
+        });
+    });
+}
+
+module.exports = { addUser, getUser, updateUser, getMood, addMessage, addMood, getMessages, getUsers, getMessage, getOwners };
