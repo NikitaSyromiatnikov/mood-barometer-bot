@@ -493,7 +493,7 @@ StatMenuScene.enter(async function (ctx) {
 
     await getStat(ctx);
     await ctx.reply(response.text, response.options);
-    return ctx.telegram.sendDocument(ctx.from.id, { source: path.resolve(__dirname, '..', 'data', `${ctx.session.latest_filename}.html`), caption: `${ctx.session.latest_filename}` }, { reply_markup: { inline_keyboard: [[{ text: 'Сайт в интернете', url: 'https://nikitasyromiatnikov.github.io/mood-barometer/' }]] } });
+    return ctx.telegram.sendDocument(ctx.from.id, { source: path.resolve(__dirname, '..', 'data', `${ctx.session.latest_filename}.html`), caption: `${ctx.session.latest_filename}` }, { reply_markup: { inline_keyboard: [[{ text: 'Сайт в интернете', url: 'https://nikitasyromiatnikov.github.io/mood-barometer-bot/' }]] } });
 });
 
 StatMenuScene.on('text', async function (ctx) {
