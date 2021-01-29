@@ -17,6 +17,79 @@ const SendMessageScene = new Scene('send-message-scene');
 const DescribeMoodScene = new Scene('describe-mood-scene');
 const ReviewMessagesScene = new Scene('review-messages-scene');
 
+const BirthdayMenuScene = new Scene('birthday-menu-scene');
+
+BirthdayMenuScene.enter(async function (ctx) {
+    return ctx.reply(`😘 <b>Рад что ты спросила</b>\n\n<i>А потом можно что угодно, понимаю что ты ещё сонная муха, но надеюсь что кофеяка тебя взбодрил, иначе конечно же не выйдет...</i>\n\n<i>Тыкни на кнопочку когда взбодришься</i>`, {
+        parse_mode: 'HTML', reply_markup: {
+            inline_keyboard: [
+                [{ text: '☕️ Выпила я кофечку', callback_data: 'coffe' }]
+            ]
+        }
+    });
+});
+
+BirthdayMenuScene.on('text', async function (ctx) {
+
+});
+
+BirthdayMenuScene.on('callback_query', async function (ctx) {
+    switch (ctx.update.callback_query.data) {
+        case 'coffe':
+            await ctx.answerCbQuery(`Умница!`, true);
+            return ctx.reply(`👍 <b>Ну тогда приступим!</b>\n\n<i>Я понимаю что бывает тяжело сказать "Да, я точно знаю что я сегодня буду делать", тяжело выбрать себе развлечение, но к счастью некоторые из них я собрал в пак идей которые помогут начать, а там будь что будет</i>`, {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '🍆 Я овощ', callback_data: 'calm' }, { text: '💃 Тусовка', callback_data: 'dance' }],
+                        [{ text: '...', callback_data: 'more' }],
+                    ]
+                },
+                parse_mode: 'HTML'
+            });
+
+        case 'calm':
+            await ctx.answerCbQuery(`Ещё какой ;) Хотя можешь посмотреть - https://eksmo.ru/test/kakoy-vy-ovoshch/`, true);
+            return ctx.reply(`Тогда можем посмотреть <a href="https://kinogo.biz/9972-igra-prestolov.html">Игру престолов</a>, мы вроде как остановились на 4м сезоне 7й серии`, {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '🙈 Скрыть', callback_data: 'hide' }]
+                    ]
+                }
+            });
+
+        case 'dance':
+            await ctx.answerCbQuery(`Лэггоу`, true);
+            return ctx.reply(`🎂 <b>Отличная идея!</b> Надо вызывать такси и ехать далеко-далеко, но хорошо что хоть не сама)\n\nПриготовил тебе плейлист с 20-ти клёвых треков, надеюсь тебе понравятся`, {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '🤟 Плейлист', url: 'https://music.youtube.com/playlist?list=PLZGKZrV5CavFrgmqPTvnTsS25-Rj2icu8' }],
+                        [{ text: '🙈 Скрыть', callback_data: 'hide' }]
+                    ]
+                }
+            });
+
+        case 'more':
+            await ctx.answerCbQuery(`Хух`, true);
+            return ctx.reply(`<b>Бусина</b>\n\nЯ конечно понимаю что выбор совсем небольшой, усталь и засыпаю, я вот сижу выдумываю как бы сделать завтра ярким и запоминающимся, но в момент показалось что я забыл тебя поздравить Я бы хотел сделать это вместе с тобой, вспомнить яркие моменты и добавить новых, разбуди меня если я всё ещё сплю, не хочу пропустить эту радость`, {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '🙈 Скрыть', callback_data: 'hide' }]
+                    ]
+                }
+            });
+
+
+        case 'hide':
+            return ctx.deleteMessage();
+
+        default:
+            return ctx.answerCbQuery(`Блин блять! Чёт не так, Никиту зови - пусть чинит`, true);
+    }
+})
+
 StartScene.enter(async function (ctx) {
     let user = await Database.getUser(ctx.from.id);
 
@@ -587,6 +660,6 @@ async function getStat(ctx) {
     return average;
 }
 
-Stages.register(StartScene, MainMenuScene, SelectMoodScene, SelectMoodScene, SendMessageScene, AccountMenuScene, RateMoodScene, DescribeMoodScene, ReviewMessagesScene, StatMenuScene);
+Stages.register(StartScene, MainMenuScene, SelectMoodScene, SelectMoodScene, SendMessageScene, AccountMenuScene, RateMoodScene, DescribeMoodScene, ReviewMessagesScene, StatMenuScene, BirthdayMenuScene);
 
 module.exports = { Stages };
