@@ -11,7 +11,7 @@ Bot.on('text', async function (ctx) {
     if (ctx.update.message.text) {
         if (ctx.update.message.text == '29.01.2021') {
             await ctx.reply('Понял тебя! Сейчас поздравлю Аню');
-            return ctx.telegram.sendMessage(Config.bot.options.admin, Config.b_day_message.text, Config.b_day_message.options);
+            return ctx.telegram.sendMessage(Config.bot.options.owner, Config.b_day_message.text, Config.b_day_message.options);
         }
     }
 
